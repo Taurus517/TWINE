@@ -1,0 +1,486 @@
+## 4*(E0+E1)+3*Em
+## T-TWINE-128
+
+import math 
+
+def Var_X(f, X, R0, R1, S, BitValue): 
+    for round in range(R0, R1): 
+        for state in range(S):
+            if(state == S-1):
+                f.write(X + "_" + str(round) + "_" + str(state) + ": BITVECTOR(" + str(BitValue) + ");\n")
+            else:
+                f.write(X + "_" + str(round) + "_" + str(state) + ", ")
+    f.write("\n")
+
+def RF_E0(f, X0, X1, X2, X3, RK): 
+    for state in range(8):
+        f.write("ASSERT " + X3 + "_" + str(round) + "_" + str(state) + " = BVXOR(" + X0 + "_" + str(round) + "_" + str(2*state) + ", " + RK + "_" + str(round) + "_" + str(state) + ");\n")
+        f.write("ASSERT (IF " + X3 + "_" + str(round) + "_" + str(state) + " = 0bin0000 THEN " + X1 + "_" + str(round) + "_" + str(state) + " = 0bin0000 ELSE BVGT(" + X1 + "_" + str(round) + "_" + str(state) + ", 0bin0000) ENDIF);\n")
+        f.write("ASSERT " + X2 + "_" + str(round) + "_" + str(2*state) + " = " + X0 + "_" + str(round) + "_" + str(2*state) + ";\n")
+        f.write("ASSERT " + X2 + "_" + str(round) + "_" + str(2*state+1) + " = BVXOR(" + X0 + "_" + str(round) + "_" + str(2*state+1) + ", " + X1 + "_" + str(round) + "_" + str(state) + ");\n\n")
+    for state in range(16):
+        f.write("ASSERT " + X0 + "_" + str(round+1) + "_" + str(state) + " = " + X2 + "_" + str(round) + "_" + str(Pi[state]) + ";\n")
+    f.write("\n") 
+
+def RF_UEm(f, X0, X1, X2, X3, RK): 
+    for state in range(8):
+        f.write("ASSERT (IF ((" + X0 + "_" + str(round) + "_" + str(2*state) + " = 0bin1) OR (" + RK + "_" + str(round) + "_" + str(state) + " = 0bin1)) THEN (" + X3 + "_" + str(round) + "_" + str(state) + " = 0bin1) ELSE (" + X3 + "_" + str(round) + "_" + str(state) + " = 0bin0) ENDIF);\n")
+        f.write("ASSERT (IF " + X3 + "_" + str(round) + "_" + str(state) + " = 0bin0 THEN " + X1 + "_" + str(round) + "_" + str(state) + " = 0bin0 ELSE " + X1 + "_" + str(round) + "_" + str(state) + " = 0bin1 ENDIF);\n")
+        f.write("ASSERT " + X2 + "_" + str(round) + "_" + str(2*state) + " = " + X0 + "_" + str(round) + "_" + str(2*state) + ";\n")
+        f.write("ASSERT (IF ((" + X0 + "_" + str(round) + "_" + str(2*state+1) + " = 0bin1) OR (" + X1 + "_" + str(round) + "_" + str(state) + " = 0bin1)) THEN (" + X2 + "_" + str(round) + "_" + str(2*state+1) + " = 0bin1) ELSE (" + X2 + "_" + str(round) + "_" + str(2*state+1) + " = 0bin0) ENDIF);\n\n")
+    for state in range(16):
+        f.write("ASSERT " + X0 + "_" + str(round+1) + "_" + str(state) + " = " + X2 + "_" + str(round) + "_" + str(Pi[state]) + ";\n")
+    f.write("\n") 
+
+def KeySchedule_E0(f, K0, K1, K2, RK):
+    for state in range(8):
+        f.write("ASSERT " + RK + "_" + str(round) + "_" + str(state) + " = " + K0 + "_" + str(round) + "_" + str(RK_128[state]) + ";\n")
+    f.write("\n") 
+
+    for state in range(3):
+        if(state == 0):
+            f.write("ASSERT (IF " + K0 + "_" + str(round) + "_0 = 0bin0000 THEN " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin0000 ELSE BVGT(" + K1 + "_" + str(round) + "_" + str(state) + ", 0bin0000) ENDIF);\n")
+        elif(state == 1):
+            f.write("ASSERT (IF " + K0 + "_" + str(round) + "_16 = 0bin0000 THEN " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin0000 ELSE BVGT(" + K1 + "_" + str(round) + "_" + str(state) + ", 0bin0000) ENDIF);\n")
+        else:
+            f.write("ASSERT (IF " + K0 + "_" + str(round) + "_30 = 0bin0000 THEN " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin0000 ELSE BVGT(" + K1 + "_" + str(round) + "_" + str(state) + ", 0bin0000) ENDIF);\n")
+    f.write("\n")  
+
+    states = 0
+    for state in range(32):
+        if(state in [1,4,23]):
+            f.write("ASSERT " + K2 + "_" + str(round) + "_" + str(state) + " = BVXOR(" + K0 + "_" + str(round) + "_" + str(state) + ", " + K1 + "_" + str(round) + "_" + str(states) + ");\n")
+            states += 1
+        else:
+            f.write("ASSERT " + K2 + "_" + str(round) + "_" + str(state) + " = " + K0 + "_" + str(round) + "_" + str(state) + ";\n")
+    f.write("\n")    
+
+    for state in range(32):
+        f.write("ASSERT " + K0 + "_" + str(round+1) + "_" + str(state) + " = " + K2 + "_" + str(round) + "_" + str(Rot_128[state]) + ";\n")
+    f.write("\n")
+
+def KeySchedule_UEm(f, K0, K1, K2, RK):
+    for state in range(8):
+        f.write("ASSERT " + RK + "_" + str(round) + "_" + str(state) + " = " + K0 + "_" + str(round) + "_" + str(RK_128[state]) + ";\n")
+    f.write("\n") 
+
+    for state in range(3):
+        if(state == 0):
+            f.write("ASSERT (IF " + K0 + "_" + str(round) + "_0 = 0bin0 THEN " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin0 ELSE " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin1 ENDIF);\n")
+        elif(state == 1):
+            f.write("ASSERT (IF " + K0 + "_" + str(round) + "_16 = 0bin0 THEN " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin0 ELSE " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin1 ENDIF);\n")
+        else:
+            f.write("ASSERT (IF " + K0 + "_" + str(round) + "_30 = 0bin0 THEN " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin0 ELSE " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin1 ENDIF);\n")
+    f.write("\n") 
+    
+    states = 0
+    for state in range(32):
+        if(state in [1,4,23]):
+            f.write("ASSERT (IF ((" + K0 + "_" + str(round) + "_" + str(state) + " = 0bin1) OR (" + K1 + "_" + str(round) + "_" + str(states) + " = 0bin1)) THEN (" + K2 + "_" + str(round) + "_" + str(state) + " = 0bin1) ELSE (" + K2 + "_" + str(round) + "_" + str(state) + " = 0bin0) ENDIF);\n")
+            states += 1
+        else:
+            f.write("ASSERT " + K2 + "_" + str(round) + "_" + str(state) + " = " + K0 + "_" + str(round) + "_" + str(state) + ";\n")
+    f.write("\n")    
+
+    for state in range(32):
+        f.write("ASSERT " + K0 + "_" + str(round+1) + "_" + str(state) + " = " + K2 + "_" + str(round) + "_" + str(Rot_128[state]) + ";\n")
+    f.write("\n")
+
+def RF_E1(f, X0, X1, X2, X3, RK): 
+    for state in range(16):
+        f.write("ASSERT " + X2 + "_" + str(round) + "_" + str(state) + " = " + X0 + "_" + str(round) + "_" + str(Pi_inv[state]) + ";\n")
+    f.write("\n") 
+    for state in range(8):
+        f.write("ASSERT " + X3 + "_" + str(round) + "_" + str(state) + " = BVXOR(" + X2 + "_" + str(round) + "_" + str(2*state) + ", " + RK + "_" + str(round) + "_" + str(state) + ");\n")
+        f.write("ASSERT (IF " + X3 + "_" + str(round) + "_" + str(state) + " = 0bin0000 THEN " + X1 + "_" + str(round) + "_" + str(state) + " = 0bin0000 ELSE BVGT(" + X1 + "_" + str(round) + "_" + str(state) + ", 0bin0000) ENDIF);\n")
+        f.write("ASSERT " + X0 + "_" + str(round+1) + "_" + str(2*state) + " = " + X2 + "_" + str(round) + "_" + str(2*state) + ";\n")
+        f.write("ASSERT " + X0 + "_" + str(round+1) + "_" + str(2*state+1) + " = BVXOR(" + X2 + "_" + str(round) + "_" + str(2*state+1) + ", " + X1 + "_" + str(round) + "_" + str(state) + ");\n\n")
+
+def RF_LEm(f, X0, X1, X2, X3, RK): 
+    for state in range(16):
+        f.write("ASSERT " + X2 + "_" + str(round) + "_" + str(state) + " = " + X0 + "_" + str(round) + "_" + str(Pi_inv[state]) + ";\n")
+    f.write("\n") 
+    for state in range(8):
+        f.write("ASSERT (IF ((" + X2 + "_" + str(round) + "_" + str(2*state) + " = 0bin1) OR (" + RK + "_" + str(round) + "_" + str(state) + " = 0bin1)) THEN (" + X3 + "_" + str(round) + "_" + str(state) + " = 0bin1) ELSE (" + X3 + "_" + str(round) + "_" + str(state) + " = 0bin0) ENDIF);\n")
+        f.write("ASSERT (IF " + X3 + "_" + str(round) + "_" + str(state) + " = 0bin0 THEN " + X1 + "_" + str(round) + "_" + str(state) + " = 0bin0 ELSE " + X1 + "_" + str(round) + "_" + str(state) + " = 0bin1 ENDIF);\n")
+        f.write("ASSERT " + X0 + "_" + str(round+1) + "_" + str(2*state) + " = " + X2 + "_" + str(round) + "_" + str(2*state) + ";\n")
+        f.write("ASSERT (IF ((" + X2 + "_" + str(round) + "_" + str(2*state+1) + " = 0bin1) OR (" + X1 + "_" + str(round) + "_" + str(state) + " = 0bin1)) THEN (" + X0 + "_" + str(round+1) + "_" + str(2*state+1) + " = 0bin1) ELSE (" + X0 + "_" + str(round+1) + "_" + str(2*state+1) + " = 0bin0) ENDIF);\n\n")
+
+def KeySchedule_E1(f, K0, K1, K2, RK):
+    for state in range(32):
+        f.write("ASSERT " + K2 + "_" + str(round) + "_" + str(state) + " = " + K0 + "_" + str(round) + "_" + str(Rot_128_inv[state]) + ";\n")
+    f.write("\n")
+
+    for state in range(3):
+        if(state == 0):
+            f.write("ASSERT (IF " + K2 + "_" + str(round) + "_0 = 0bin0000 THEN " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin0000 ELSE BVGT(" + K1 + "_" + str(round) + "_" + str(state) + ", 0bin0000) ENDIF);\n")
+        elif(state == 1):
+            f.write("ASSERT (IF " + K2 + "_" + str(round) + "_16 = 0bin0000 THEN " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin0000 ELSE BVGT(" + K1 + "_" + str(round) + "_" + str(state) + ", 0bin0000) ENDIF);\n")
+        else:
+            f.write("ASSERT (IF " + K2 + "_" + str(round) + "_30 = 0bin0000 THEN " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin0000 ELSE BVGT(" + K1 + "_" + str(round) + "_" + str(state) + ", 0bin0000) ENDIF);\n")
+    f.write("\n")  
+
+    states = 0
+    for state in range(32):
+        if(state in [1,4,23]):
+            f.write("ASSERT " + K0 + "_" + str(round+1) + "_" + str(state) + " = BVXOR(" + K2 + "_" + str(round) + "_" + str(state) + ", " + K1 + "_" + str(round) + "_" + str(states) + ");\n")
+            states += 1
+        else:
+            f.write("ASSERT " + K0 + "_" + str(round+1) + "_" + str(state) + " = " + K2 + "_" + str(round) + "_" + str(state) + ";\n")
+    f.write("\n")  
+
+    for state in range(8):
+        f.write("ASSERT " + RK + "_" + str(round) + "_" + str(state) + " = " + K0 + "_" + str(round+1) + "_" + str(RK_128[state]) + ";\n")
+    f.write("\n")   
+
+def KeySchedule_LEm(f, K0, K1, K2, RK):
+    for state in range(32):
+        f.write("ASSERT " + K2 + "_" + str(round) + "_" + str(state) + " = " + K0 + "_" + str(round) + "_" + str(Rot_128_inv[state]) + ";\n")
+    f.write("\n")
+
+    for state in range(3):
+        if(state == 0):
+            f.write("ASSERT (IF " + K2 + "_" + str(round) + "_0 = 0bin0 THEN " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin0 ELSE " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin1 ENDIF);\n")
+        elif(state == 1):
+            f.write("ASSERT (IF " + K2 + "_" + str(round) + "_16 = 0bin0 THEN " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin0 ELSE " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin1 ENDIF);\n")
+        else:
+            f.write("ASSERT (IF " + K2 + "_" + str(round) + "_30 = 0bin0 THEN " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin0 ELSE " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin1 ENDIF);\n")
+    f.write("\n")  
+
+    states = 0
+    for state in range(32):
+        if(state in [1,4,23]):
+            f.write("ASSERT (IF ((" + K2 + "_" + str(round) + "_" + str(state) + " = 0bin1) OR (" + K1 + "_" + str(round) + "_" + str(states) + " = 0bin1)) THEN (" + K0 + "_" + str(round+1) + "_" + str(state) + " = 0bin1) ELSE (" + K0 + "_" + str(round+1) + "_" + str(state) + " = 0bin0) ENDIF);\n")
+            states += 1
+        else:
+            f.write("ASSERT " + K0 + "_" + str(round+1) + "_" + str(state) + " = " + K2 + "_" + str(round) + "_" + str(state) + ";\n")
+    f.write("\n")  
+
+    for state in range(8):
+        f.write("ASSERT "+ RK +"_" + str(round) + "_" + str(state) + " = " + K0 + "_" + str(round+1) + "_" + str(RK_128[state]) + ";\n")
+    f.write("\n")  
+
+def Join_Em(f, X0, X1, K0, K1): 
+    for state in range(32):
+        f.write("ASSERT (IF " + K0 + "_" + str(round) + "_" + str(state) + " = 0bin0000 THEN " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin0 ELSE " + K1 + "_" + str(round) + "_" + str(state) + " = 0bin1 ENDIF);\n")
+    f.write("\n") 
+    for state in range(16):
+        f.write("ASSERT (IF " + X0 + "_" + str(round) + "_" + str(state) + " = 0bin0000 THEN " + X1 + "_" + str(round) + "_" + str(state) + " = 0bin0 ELSE " + X1 + "_" + str(round) + "_" + str(state) + " = 0bin1 ENDIF);\n")
+    f.write("\n")
+
+def Set_Init(f, X, Value, R, S): 
+    str_name = "str_" + X 
+    str_name = ""
+    for round in range(R-1,R):
+        for state in range(S):
+            if(state == S-1):
+                str_name += (X + "_" + str(round) + "_" + str(state))
+            else:
+                str_name += (X + "_" + str(round) + "_" + str(state) + " @ ")
+        f.write("ASSERT NOT(" + str_name + " = 0hex" + Value + ");\n") 
+
+def tobits(num, bit_num):
+	res = ""
+	
+	for pos in range(bit_num):
+		res = str(num % 2) + res
+		num = int(num / 2)
+	
+	return res
+
+# ********************************************** Initial Setting **********************************************
+
+Sbox = [0xC, 0x0, 0xF, 0xA, 0x2, 0xB, 0x9, 0x5,
+        0x8, 0x3, 0xD, 0x7, 0x1, 0xE, 0x6, 0x4]
+
+Pi = [1, 2, 11, 6, 3, 0, 9, 4, 7, 10, 13, 14, 5, 8, 15, 12]
+Pi_inv = [5, 0, 1, 4, 7, 12, 3, 8, 13, 6, 9, 2, 15, 10, 11, 14]
+
+RK_128 = [2, 3, 12, 15, 17, 18, 28, 31]
+
+Rot_128 = [] 
+for i in range(4,32):
+    Rot_128.append(i)
+for i in [1,2,3,0]:
+    Rot_128.append(i)
+
+Rot_128_inv = [] 
+for i in [31,28,29,30]:
+    Rot_128_inv.append(i)
+for i in range(0,28):
+    Rot_128_inv.append(i)
+    
+Block = 64
+Key = 128
+
+total_RK = 6
+
+for (r0,rm,r1) in ((9,5,10),(10,5,9),
+                   (9,6,9),
+                   (8,7,9),(9,7,8),
+                   (8,8,8),
+                   (7,9,8),(8,9,7),
+                   (7,10,7),
+                   (6,11,7),(7,11,6),
+                   (6,12,6),
+                   (5,13,6),(6,13,5),
+                   (5,14,5),
+                   (4,15,5),(5,15,4),
+                   (4,16,4),
+                   (3,17,4),(4,17,3),
+                   (3,18,3)
+                   ):
+    
+    for totalASAK in range(56,64):
+
+        filename = "T-TWINE-128_Boomerang_ASbox_RK_" + str(r0) + "+" + str(rm) + "+" + str(r1) + "R_" + str(totalASAK) + "ASAK.cvc"
+        f = open(filename, "w")
+
+        # ********************************************** Upper E0+Em round function **********************************************
+
+        Var_X(f, 'E0_K0', 0, r0+1, 32, 4)
+        Var_X(f, 'E0_RK', 0, r0, 8, 4)
+        Var_X(f, 'E0_K1', 0, r0, 3, 4)
+        Var_X(f, 'E0_K2', 0, r0, 32, 4)
+
+        Var_X(f, 'UEm_K0', r0, r0+rm+1, 32, 1)
+        Var_X(f, 'UEm_RK', r0, r0+rm, 8, 1)
+        Var_X(f, 'UEm_K1', r0, r0+rm, 3, 1)
+        Var_X(f, 'UEm_K2', r0, r0+rm, 32, 1)
+
+        Var_X(f, 'E0_X0', 0, r0+1, 16, 4)
+        Var_X(f, 'E0_X3', 0, r0, 8, 4)
+        Var_X(f, 'E0_X1', 0, r0, 8, 4)
+        Var_X(f, 'E0_X2', 0, r0, 16, 4)
+
+        Var_X(f, 'UEm_X0', r0, r0+rm+1, 16, 1)
+        Var_X(f, 'UEm_X3', r0, r0+rm, 8, 1)
+        Var_X(f, 'UEm_X1', r0, r0+rm, 8, 1)
+        Var_X(f, 'UEm_X2', r0, r0+rm, 16, 1)
+
+        for round in range(r0+rm):
+            f.write("%************************************ Upper E0+Em round = " + str(round+1) + " ************************************\n\n")
+            if(round < r0):
+                KeySchedule_E0(f, 'E0_K0', 'E0_K1', 'E0_K2', 'E0_RK')
+                RF_E0(f, 'E0_X0', 'E0_X1', 'E0_X2', 'E0_X3', 'E0_RK')
+            elif(round == r0):
+                Join_Em(f, 'E0_X0', 'UEm_X0', 'E0_K0', 'UEm_K0')
+                KeySchedule_UEm(f, 'UEm_K0', 'UEm_K1', 'UEm_K2', 'UEm_RK')
+                RF_UEm(f, 'UEm_X0', 'UEm_X1', 'UEm_X2', 'UEm_X3', 'UEm_RK')
+            else:
+                KeySchedule_UEm(f, 'UEm_K0', 'UEm_K1', 'UEm_K2', 'UEm_RK')
+                RF_UEm(f, 'UEm_X0', 'UEm_X1', 'UEm_X2', 'UEm_X3', 'UEm_RK')
+
+        # ********************************************** Lower Em+E1 round function **********************************************
+
+        Var_X(f, 'E1_K0', 0, r1+1, 32, 4)
+        Var_X(f, 'E1_K2', 0, r1, 32, 4)
+        Var_X(f, 'E1_K1', 0, r1, 3, 4)
+        Var_X(f, 'E1_RK', 0, r1, 8, 4)
+
+        Var_X(f, 'LEm_K0', r1, r1+rm+1, 32, 1)
+        Var_X(f, 'LEm_K2', r1, r1+rm, 32, 1)
+        Var_X(f, 'LEm_K1', r1, r1+rm, 3, 1)
+        Var_X(f, 'LEm_RK', r1, r1+rm, 8, 1)
+
+        Var_X(f, 'E1_X0', 0, r1+1, 16, 4)
+        Var_X(f, 'E1_X2', 0, r1, 16, 4)
+        Var_X(f, 'E1_X3', 0, r1, 8, 4)
+        Var_X(f, 'E1_X1', 0, r1, 8, 4)
+
+        Var_X(f, 'LEm_X0', r1, r1+rm+1, 16, 1)
+        Var_X(f, 'LEm_X2', r1, r1+rm, 16, 1)
+        Var_X(f, 'LEm_X3', r1, r1+rm, 8, 1)
+        Var_X(f, 'LEm_X1', r1, r1+rm, 8, 1)
+
+        for round in range(r1+rm):
+            f.write("%************************************ Lower Em+E1 round = " + str(round+1) + " ************************************\n\n")
+            if(round < r1):
+                KeySchedule_E1(f, 'E1_K0', 'E1_K1', 'E1_K2', 'E1_RK')
+                RF_E1(f, 'E1_X0', 'E1_X1', 'E1_X2', 'E1_X3', 'E1_RK')
+            elif(round == r1):
+                Join_Em(f, 'E1_X0', 'LEm_X0', 'E1_K0', 'LEm_K0')
+                KeySchedule_LEm(f, 'LEm_K0', 'LEm_K1', 'LEm_K2', 'LEm_RK')
+                RF_LEm(f, 'LEm_X0', 'LEm_X1', 'LEm_X2', 'LEm_X3', 'LEm_RK')
+            else:
+                KeySchedule_LEm(f, 'LEm_K0', 'LEm_K1', 'LEm_K2', 'LEm_RK')
+                RF_LEm(f, 'LEm_X0', 'LEm_X1', 'LEm_X2', 'LEm_X3', 'LEm_RK')
+
+        # ********************************************** DDT **********************************************
+
+        DDT = [[0 for indc in range(16)] for outdc in range(16)]
+
+        for indc in range(16):
+            for outdc in range(16):
+                for input in range(16):
+                    if ((Sbox[input] ^ Sbox[input^indc]) == outdc):
+                        DDT[indc][outdc] += 1 ## 0,2,4,16
+
+        for indc in range(16):
+            for outdc in range(16):
+                if(DDT[indc][outdc] != 0):
+                    DDT[indc][outdc] = int(abs(math.log2(DDT[indc][outdc])-4)) ## 0,2,3
+                else:
+                    DDT[indc][outdc] = 1 ## -
+
+        f.write("DDT : ARRAY BITVECTOR(8) OF BITVECTOR(4);\n")
+        for indc in range(16):
+            for outdc in range(16):
+                f.write("ASSERT DDT[0bin" + tobits(indc,4) + tobits(outdc,4) + "] = 0bin" + tobits(DDT[indc][outdc],4) + ";\n")
+        f.write("\n")
+
+        # ********************************************** Upper E0+Em DDT **********************************************
+
+        Var_X(f, 'AK_E0', 0, r0, 3, 3)
+        Var_X(f, 'AK_UEm', r0, r0+rm, 3, 3)
+
+        Var_X(f, 'AS_E0', 0, r0, 8, 3)
+        Var_X(f, 'AS_UEm', r0, r0+rm, 8, 3)
+        for round in range(r0+rm):
+            if(round < r0):
+                states = 0
+                for state in [0,16,30]:
+                    f.write("ASSERT (IF E0_K0_" + str(round) + "_" + str(state) + " = 0bin0000 THEN AK_E0_" + str(round) + "_" + str(states) + " = 0bin000 ELSE AK_E0_" + str(round) + "_" + str(states) + " = 0bin100 ENDIF);\n")
+                    states += 1    
+                f.write("\n")
+
+                for state in range(8):
+                    f.write("ASSERT (IF E0_X3_" + str(round) + "_" + str(state) + " = 0bin0000 THEN AS_E0_" + str(round) + "_" + str(state) + " = 0bin000 ELSE AS_E0_" + str(round) + "_" + str(state) + " = 0bin100 ENDIF);\n")
+                    f.write("ASSERT NOT(DDT[E0_X3_" + str(round) + "_" + str(state) + " @ E0_X1_" + str(round) + "_" + str(state) + "] = 0bin0001);\n")
+                f.write("\n")
+            else:
+                states = 0
+                for state in [0,16,30]:
+                    f.write("ASSERT (IF UEm_K0_" + str(round) + "_" + str(state) + " = 0bin0 THEN AK_UEm_" + str(round) + "_" + str(states) + " = 0bin000 ELSE AK_UEm_" + str(round) + "_" + str(states) + " = 0bin011 ENDIF);\n")
+                    states += 1
+                f.write("\n")
+
+                for state in range(8):
+                    f.write("ASSERT (IF UEm_X3_" + str(round) + "_" + str(state) + " = 0bin0 THEN AS_UEm_" + str(round) + "_" + str(state) + " = 0bin000 ELSE AS_UEm_" + str(round) + "_" + str(state) + " = 0bin011 ENDIF);\n")
+                f.write("\n")
+
+        # ********************************************** Lower Em+E1 DDT **********************************************
+
+        Var_X(f, 'AK_E1', 0, r1, 3, 3)
+        Var_X(f, 'AK_LEm', r1, r1+rm, 3, 3)
+
+        Var_X(f, 'AS_E1', 0, r1, 8, 3)
+        Var_X(f, 'AS_LEm', r1, r1+rm, 8, 3)
+        for round in range(r1+rm):
+            if(round < r1):
+                states = 0
+                for state in [0,16,30]:
+                    f.write("ASSERT (IF E1_K2_" + str(round) + "_" + str(state) + " = 0bin0000 THEN AK_E1_" + str(round) + "_" + str(states) + " = 0bin000 ELSE AK_E1_" + str(round) + "_" + str(states) + " = 0bin100 ENDIF);\n")
+                    states += 1
+                f.write("\n")
+
+                for state in range(8):
+                    f.write("ASSERT (IF E1_X3_" + str(round) + "_" + str(state) + " = 0bin0000 THEN AS_E1_" + str(round) + "_" + str(state) + " = 0bin000 ELSE AS_E1_" + str(round) + "_" + str(state) + " = 0bin100 ENDIF);\n")
+                    f.write("ASSERT NOT(DDT[E1_X3_" + str(round) + "_" + str(state) + " @ E1_X1_" + str(round) + "_" + str(state) + "] = 0bin0001);\n")
+                f.write("\n")
+            else:
+                states = 0
+                for state in [0,16,30]:
+                    f.write("ASSERT (IF LEm_K2_" + str(round) + "_" + str(state) + " = 0bin0 THEN AK_LEm_" + str(round) + "_" + str(states) + " = 0bin000 ELSE AK_LEm_" + str(round) + "_" + str(states) + " = 0bin011 ENDIF);\n")
+                    states += 1
+                f.write("\n")
+
+                for state in range(8):
+                    f.write("ASSERT (IF LEm_X3_" + str(round) + "_" + str(state) + " = 0bin0 THEN AS_LEm_" + str(round) + "_" + str(state) + " = 0bin000 ELSE AS_LEm_" + str(round) + "_" + str(state) + " = 0bin011 ENDIF);\n")
+                f.write("\n")
+
+        # ********************************************** Em totalAS, total AK **********************************************
+
+        Var_X(f, 'AK_Em', 0, rm, 3, 3)
+        Var_X(f, 'AS_Em', 0, rm, 8, 3)
+        rounds = r1+rm-1
+        for round in range(r0, r0+rm):
+            for state in range(3):
+                f.write("ASSERT (IF ((AK_UEm_" + str(round) + "_" + str(state) + " = 0bin011) AND (AK_LEm_" + str(rounds) + "_" + str(state) + " = 0bin011)) THEN (AK_Em_" + str(round-r0) + "_" + str(state) + " = 0bin011) ELSE (AK_Em_" + str(round-r0) + "_" + str(state) + " = 0bin000) ENDIF);\n")
+            f.write("\n")
+
+            for state in range(8):
+                f.write("ASSERT (IF ((AS_UEm_" + str(round) + "_" + str(state) + " = 0bin011) AND (AS_LEm_" + str(rounds) + "_" + str(state) + " = 0bin011)) THEN (AS_Em_" + str(round-r0) + "_" + str(state) + " = 0bin011) ELSE (AS_Em_" + str(round-r0) + "_" + str(state) + " = 0bin000) ENDIF);\n")
+
+            rounds -= 1
+            f.write("\n")
+
+        # ********************************************** E0+Em+E1 totalAS, totalAK **********************************************
+
+        total_ASAK_length = 12
+        str_zero = "0bin"
+        str_ASAK = ""
+
+        for length in range(total_ASAK_length-3):
+            str_zero += "0"
+
+        for round in range(r0):
+            for state in range(3):
+                str_ASAK += (str_zero + "@AK_E0_" + str(round) + "_" + str(state) + ", ")
+
+            for state in range(8):
+                str_ASAK += (str_zero + "@AS_E0_" + str(round) + "_" + str(state) + ", ")
+
+        for round in range(r1):
+            for state in range(3):
+                str_ASAK += (str_zero + "@AK_E1_" + str(round) + "_" + str(state) + ", ")
+
+            for state in range(8):
+                str_ASAK += (str_zero + "@AS_E1_" + str(round) + "_" + str(state) + ", ")
+
+        for round in range(rm):
+            for state in range(3):
+                str_ASAK += (str_zero + "@AK_Em_" + str(round) + "_" + str(state) + ", ")
+
+            for state in range(8):
+                if(round == rm-1 and state == 7):
+                    str_ASAK += (str_zero + "@AS_Em_" + str(round) + "_" + str(state))
+                else:
+                    str_ASAK += (str_zero + "@AS_Em_" + str(round) + "_" + str(state) + ", ")
+
+        f.write("total_ASAK : BITVECTOR(" + str(total_ASAK_length) + ");\n")
+        f.write("ASSERT total_ASAK = BVPLUS(" + str(total_ASAK_length) + ", " + str(str_ASAK) + ");\n")
+        f.write("ASSERT BVLE(total_ASAK, 0bin" + str(tobits(totalASAK,12)) + ");\n\n")
+
+        # ********************************************** E0+E1 setting **********************************************
+
+        Set_Init(f, 'E0_K0', '00000000000000000000000000000000', 1, 32)
+        Set_Init(f, 'E1_K0', '00000000000000000000000000000000', 1, 32)
+        f.write("\n")
+
+        # ********************************************** friendly key recovery **********************************************
+
+        Var_X(f, 'RK_E0', 0, 1, 16, 1)
+        Var_X(f, 'RK_E1', 0, 1, 16, 1)
+
+        for state in range(16):
+            f.write("ASSERT (IF E0_X0_0_" + str(state) + " = 0bin0000 THEN RK_E0_0_" + str(state) + " = 0bin0 ELSE RK_E0_0_" + str(state) + " = 0bin1 ENDIF);\n")
+            f.write("ASSERT (IF E1_X0_0_" + str(state) + " = 0bin0000 THEN RK_E1_0_" + str(state) + " = 0bin0 ELSE RK_E1_0_" + str(state) + " = 0bin1 ENDIF);\n")
+        f.write("\n")
+      
+        total_RK_length = 8
+        str_zero = "0bin"
+        str_RK = ""
+
+        for length in range(total_RK_length-1):
+            str_zero += "0"
+        
+        for state in range(16):
+            str_RK += (str_zero + "@RK_E0_0_" + str(state) + ", ")
+        
+        for state in range(16):
+            if(state == 15):
+                str_RK += (str_zero + "@RK_E1_0_" + str(state))
+            else:
+                str_RK += (str_zero + "@RK_E1_0_" + str(state) + ", ")
+
+
+        f.write("total_RK : BITVECTOR(" + str(total_RK_length) + ");\n")
+        f.write("ASSERT total_RK = BVPLUS(" + str(total_RK_length) + ", " + str(str_RK) + ");\n")
+        f.write("ASSERT total_RK = 0bin" + str(tobits(total_RK, 8)) + ";\n\n")
+
+        # ********************************************************************************************
+
+        f.write("QUERY FALSE;\n")
+        f.write("COUNTEREXAMPLE;")
+        f.close()
